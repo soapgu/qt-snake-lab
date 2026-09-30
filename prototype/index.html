@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Qt Snake Lab 贪吃蛇离线交互原型">
+  <title>Qt Snake Lab · 交互原型</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <a class="brand" href="#home" id="brand-home" aria-label="Qt Snake Lab 返回首页">
+        <span class="brand-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span><strong>Qt Snake Lab</strong><small>一步一格，练习每一层。</small></span>
+      </a>
+      <span class="prototype-badge">交互原型 <span>· 阶段 1</span></span>
+    </header>
+
+    <main>
+      <section id="home-page" class="home-layout" aria-labelledby="home-title">
+        <div class="home-copy">
+          <p class="eyebrow"><span class="status-dot"></span> 经典玩法 · 新的练习</p>
+          <h1 id="home-title">从一条小蛇，<br>开始探索 <span>Qt。</span></h1>
+          <p class="lead">转个弯，吃一口，再长一点。<br>在熟悉的小游戏里，走完一次完整的软件设计。</p>
+          <div class="home-facts"><span>20 × 20 棋盘</span><span>三档难度</span><span>本地最高分</span></div>
+          <div class="preview-board" aria-hidden="true">
+            <div class="preview-snake"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <span class="preview-food"></span>
+            <span class="preview-caption">下一步，向你想去的方向。</span>
+          </div>
+        </div>
+        <div class="start-card">
+          <div class="section-heading"><h2>准备出发</h2><span class="tag">经典模式</span></div>
+          <p class="muted">选择一个适合自己的节奏。</p>
+          <fieldset class="difficulty-picker">
+            <legend>游戏难度</legend>
+            <label><input type="radio" name="difficulty" value="easy"><span><strong>简单</strong><small>240 ms / 格</small></span></label>
+            <label><input type="radio" name="difficulty" value="normal" checked><span><strong>普通</strong><small>160 ms / 格</small></span></label>
+            <label><input type="radio" name="difficulty" value="hard"><span><strong>困难</strong><small>100 ms / 格</small></span></label>
+          </fieldset>
+          <div class="home-record"><span>这一难度的最高分</span><strong id="home-best">0 <small>分</small></strong></div>
+          <button id="start-game" class="button primary full-width" type="button">开始游戏 <span aria-hidden="true">→</span></button>
+          <div class="instructions">
+            <h3>操作很简单</h3>
+            <p><span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> 或 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>控制方向</span></p>
+            <p><span><kbd>空格</kbd></span><span>暂停 / 继续</span></p>
+            <p><span><kbd>Esc</kbd></span><span>运行时暂停</span></p>
+            <small>吃到食物 +10 分；撞墙或撞到自己结束。<br>离开窗口会自动暂停，回来后请主动继续。</small>
+          </div>
+        </div>
+      </section>
+
+      <section id="game-page" class="game-layout" hidden aria-label="游戏界面">
+        <div class="board-column">
+          <div class="board-heading"><span class="eyebrow">经典模式 <span id="game-difficulty">普通</span></span><span id="game-status" class="tag">准备就绪</span></div>
+          <div class="board-frame">
+            <canvas id="board" width="600" height="600" tabindex="0" aria-label="贪吃蛇棋盘，使用方向键或 WASD 转向">请使用支持 Canvas 的浏览器。</canvas>
+            <section id="game-overlay" class="game-overlay" hidden aria-labelledby="overlay-title">
+              <div class="overlay-card">
+                <span id="overlay-symbol" class="overlay-symbol" aria-hidden="true">Ⅱ</span>
+                <p id="overlay-kicker" class="eyebrow">休息一下</p>
+                <h2 id="overlay-title">游戏已暂停</h2>
+                <p id="overlay-description" class="muted"></p>
+                <div id="result-stats" class="result-stats" hidden><div><span>本局分数</span><strong id="result-score">0</strong></div><div><span>最高分</span><strong id="result-best">0</strong></div></div>
+                <p id="sample-label" class="sample-label" hidden>评审示例 · 模拟数据，不写入最高分</p>
+                <div class="overlay-actions"><button id="overlay-primary" class="button primary" type="button">继续游戏</button><button id="overlay-restart" class="button" type="button">重新开始</button><button id="overlay-home" class="text-button" type="button">返回首页</button></div>
+              </div>
+            </section>
+          </div>
+          <p class="board-help"><span><kbd>方向键</kbd> / <kbd>WASD</kbd> 转向</span><span><kbd>空格</kbd> 暂停</span></p>
+        </div>
+        <aside class="game-sidebar" aria-label="本局信息">
+          <div class="score-card"><span>本局分数</span><strong id="current-score">0</strong><small>每个食物 +10 分</small></div>
+          <div class="side-card"><div class="stat-row"><span>当前最高分</span><strong id="game-best">0</strong></div><div class="stat-row"><span>蛇身长度</span><strong id="snake-length">3</strong></div><div class="stat-row"><span>移动间隔</span><strong id="game-speed">160 ms</strong></div></div>
+          <div class="side-card game-actions"><button id="pause-game" class="button primary" type="button">暂停游戏</button><button id="restart-game" class="button" type="button">重新开始</button><button id="return-home" class="text-button" type="button">返回首页</button></div>
+          <p class="side-note">每次只走一格。<br>不要掉头，也别忘了留条退路。</p>
+        </aside>
+      </section>
+
+      <p id="storage-message" class="storage-message" role="status" hidden></p>
+      <p id="live-status" class="sr-only" role="status" aria-live="polite"></p>
+      <details id="review-tools" class="review-tools">
+        <summary>原型评审工具 <span>查看少见状态</span></summary>
+        <p>以下操作载入示例结算，不计入试玩最高分。游戏进行中会先暂停。</p>
+        <div class="review-actions"><button id="sample-failure" class="button small" type="button">查看失败示例</button><button id="sample-victory" class="button small" type="button">查看胜利示例</button><button id="storage-failure" class="button small" type="button">模拟一次保存失败</button></div>
+      </details>
+    </main>
+    <footer><span>QML + C++ + MVVM 学习项目</span><span>离线网页原型 · Qt 程序尚未实现</span></footer>
+  </div>
+
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-description">
+    <form method="dialog">
+      <span class="dialog-mark" aria-hidden="true">↻</span>
+      <h2 id="confirm-title">重新开始？</h2>
+      <p id="confirm-description">当前进度不会保留。</p>
+      <p class="muted">取消后游戏保持暂停，你可以主动继续。</p>
+      <div class="dialog-actions"><button id="cancel-confirm" class="button" type="button">取消</button><button id="accept-confirm" class="button primary" type="button">确认重开</button></div>
+    </form>
+  </dialog>
+</body>
+</html>
