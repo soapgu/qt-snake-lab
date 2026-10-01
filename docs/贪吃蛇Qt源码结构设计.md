@@ -4,7 +4,7 @@
 
 本文记录目标文件、接口、通知、依赖和所有权；[Qt 实现方案](贪吃蛇Qt实现方案.md)管理行为、实施步骤与验收；[交互原型说明](贪吃蛇交互原型说明.md)保留原型事实与评审记录。
 
-**软件设计已通过用户评审；以下全部 Qt 源码、QML、构建及测试文件均为“计划新增（未实现）”。** 当前没有 Qt 工程，本阶段不创建目录或占位源码。2026-09-30 已确认采用 CM 风格严格 MVVM，存储异常在内部处理，界面不提供相关提示。2026-10-01 已确认增加 SettingsService 并使用两类精确设置通知，存储只负责读写。
+**软件设计已通过用户评审；以下全部 Qt 源码、QML、构建及测试文件均为“计划新增（未实现）”。** 当前没有 Qt 工程，本阶段不创建目录或占位源码。2026-09-30 已确认采用 CM 风格严格 MVVM，存储异常在内部处理，界面不提供相关提示。2026-10-01 已确认增加 SettingsService 并使用两类精确设置通知，存储只负责读写；同日确认 Boost.Ext.DI 装配业务 VM、构造注入子 VM，以及 Game 按需创建和返回首页后释放。
 
 业务 View 与 ViewModel 按名称一一对应；父 VM 组合子 VM，QML 只声明单 VM 绑定和操作。Screen/Conductor/ActionBinding 等为本项目计划实现的最小支撑，不是 Qt 内置框架；不加入通用事件总线或控件引用到 ViewModel。
 
@@ -42,7 +42,12 @@
 
 | 文件 | 状态 | 职责 |
 | --- | --- | --- |
-| `src/app/main.cpp` | 计划新增（未实现） | 组合根；固定应用身份，创建依赖与 Shell，注册表定位根 View并注入，处理加载失败与退出次序。 |
+| `src/app/main.cpp` | 计划新增（未实现） | 组合根；固定身份，创建并初始化服务、Game 工厂，经 buildShell 装配根，定位根 View并注入，管理退出次序。 |
+| `src/app/ViewModelComposition.h` | 计划新增（未实现） | 声明 buildShell，返回独占所有权的根 Shell；不向 VM 暴露容器类型。 |
+| `src/app/ViewModelComposition.cpp` | 计划新增（未实现） | 绑定已有服务和工厂，以局部 DI 注入器创建 Shell/Home/Difficulty；返回后注入器可销毁。 |
+| `src/app/ViewModelInjectionTraits.h` | 计划新增（未实现） | 集中声明八个业务 VM 的外部 ctor_traits，排除 QObject parent；只由应用装配实现包含。 |
+| `src/app/GameViewModelFactory.h` | 计划新增（未实现） | 声明普通 C++ 工厂实现，借用会话、设置和弹窗服务。 |
+| `src/app/GameViewModelFactory.cpp` | 计划新增（未实现） | 每次 create 建立局部注入器，递归创建 Game/Board/Status/Pause/Result；不保存注入器引用。 |
 | `src/domain/GameTypes.h` | 计划新增（未实现） | 普通 C++ 坐标、规则枚举、快照和单步结果，不依赖 Qt。 |
 | `src/application/GameSessionTypes.h` | 计划新增（未实现） | 五种会话状态与暂停原因，独立于 QML 枚举桥接。 |
 | `src/application/SettingsTypes.h` | 计划新增（未实现） | 设置记录和加载结果值类型：所选难度、三档最高分、可选解码字段及读取成功标记。 |
@@ -82,6 +87,7 @@
 | `src/presentation/GameEnumsQml.h` | 计划新增（未实现） | 注册 GameEnums，暴露状态/方向/难度/结束原因/暂停原因/格子类型，不包含确认操作枚举。 |
 | `src/presentation/mvvm/ConfirmationRequest.h` | 计划新增（未实现） | 弹窗文案值类型和异步完成函数约定。 |
 | `src/presentation/mvvm/IDialogService.h` | 计划新增（未实现） | 一个当前弹窗、异步 confirm、按请求者取消；抽象弹窗服务接口。 |
+| `src/presentation/IGameViewModelFactory.h` | 计划新增（未实现） | 普通 C++ 创建接口；create 返回 std::unique_ptr<GameViewModel>，由 Shell 借用，不依赖 DI 或 QML。 |
 
 | 文件 | 状态 | 职责 |
 | --- | --- | --- |
@@ -89,8 +95,8 @@
 | `src/presentation/mvvm/ViewModelBase.cpp` | 计划新增（未实现） | 实现共享展示类型基础，不提供游戏逻辑。 |
 | `src/presentation/mvvm/ScreenViewModel.h` | 计划新增（未实现） | 声明初始化/激活/停用及 isInitialized/isActive 通知。 |
 | `src/presentation/mvvm/ScreenViewModel.cpp` | 计划新增（未实现） | 实现一次初始化与幂等生命周期，提供受保护生命周期钩子。 |
-| `src/presentation/mvvm/ConductorViewModel.h` | 计划新增（未实现） | 声明子 Screen 所有权和唯一 activeItem。 |
-| `src/presentation/mvvm/ConductorViewModel.cpp` | 计划新增（未实现） | 实现注册子项，先停用旧项再激活新项，可保持空活动项。 |
+| `src/presentation/mvvm/ConductorViewModel.h` | 计划新增（未实现） | 声明 unique_ptr 子 Screen 接管、非活动项移除和唯一 activeItem。 |
+| `src/presentation/mvvm/ConductorViewModel.cpp` | 计划新增（未实现） | 实现登记/接管、先停用旧项再激活新项、取消登记与 deleteLater；可保持空活动项。 |
 | `src/presentation/mvvm/ViewRegistry.h` | 计划新增（未实现） | 声明类型到 View 的固定注册与 QML 单例入口。 |
 | `src/presentation/mvvm/ViewRegistry.cpp` | 计划新增（未实现） | 实现九对 VM/View 映射、根入口共用查询及缺失映射诊断。 |
 | `src/presentation/mvvm/ActionBinding.h` | 计划新增（未实现） | 声明target/action/arguments、enabled、execute。 |
@@ -101,13 +107,13 @@
 | 文件 | 状态 | 职责 |
 | --- | --- | --- |
 | `src/presentation/ShellViewModel.h` | 计划新增（未实现） | 声明根 Conductor、dialog 及窗口失焦操作。 |
-| `src/presentation/ShellViewModel.cpp` | 计划新增（未实现） | 实现创建 Home/Game、C++导航连接及服务弹窗入口投影。 |
+| `src/presentation/ShellViewModel.cpp` | 计划新增（未实现） | 接管传入的 Home，开始意图驱动工厂创建 Game，开始成功才导航，返回后移除 Game；投影弹窗入口。 |
 | `src/presentation/HomeViewModel.h` | 计划新增（未实现） | 声明首页 Screen、Difficulty 子项及开始操作。 |
-| `src/presentation/HomeViewModel.cpp` | 计划新增（未实现） | 实现首页激活与开始用例，成功发 gameStarted 意图。 |
+| `src/presentation/HomeViewModel.cpp` | 计划新增（未实现） | 接管传入的 Difficulty，管理首页激活和开始守卫，仅发 startRequested，不调用会话 start。 |
 | `src/presentation/DifficultyViewModel.h` | 计划新增（未实现） | 声明只读设置展示及选择操作。 |
 | `src/presentation/DifficultyViewModel.cpp` | 计划新增（未实现） | 实现共享会话/设置服务读取、精确通知过滤、首页交互条件、通知及枚举校验。 |
-| `src/presentation/GameViewModel.h` | 计划新增（未实现） | 声明游戏 Screen、Board/Status/overlay 与游戏操作。 |
-| `src/presentation/GameViewModel.cpp` | 计划新增（未实现） | 实现子 VM 组合、会话到覆盖层映射、确认交互锁和异步后续操作。 |
+| `src/presentation/GameViewModel.h` | 计划新增（未实现） | 声明子 VM 接管、Board/Status/overlay、仅 C++ 的 beginSession 与 QML 游戏操作。 |
+| `src/presentation/GameViewModel.cpp` | 计划新增（未实现） | 接管传入的业务子 VM，内部创建覆盖层，执行开始用例、覆盖层映射、确认锁及异步后续操作。 |
 | `src/presentation/BoardViewModel.h` | 计划新增（未实现） | 声明棋盘模型入口、方向/说明、转向操作。 |
 | `src/presentation/BoardViewModel.cpp` | 计划新增（未实现） | 实现快照投影、输入条件及方向参数校验。 |
 | `src/presentation/GameStatusViewModel.h` | 计划新增（未实现） | 声明只读本局统计与通知。 |
@@ -123,7 +129,7 @@
 
 ## 4. 目标关键契约（待实现）
 
-方法默认处于 snake 命名空间。全部契约待实现；常量入口使用 CONSTANT，其余表内只读动态属性均使用 READ 和 `<property>Changed()` NOTIFY，值变化才通知。命令均显式暴露，属性不提供业务 WRITE。
+方法默认处于 snake 命名空间。全部契约待实现；常量入口使用 CONSTANT，其余表内只读动态属性均使用 READ 和 `<property>Changed()` NOTIFY，值变化才通知。面向 QML 的操作均显式暴露，装配和生命周期 API 仅供 C++ 使用，属性不提供业务 WRITE。
 
 ### 4.1 值类型、枚举与组合根
 
@@ -141,9 +147,22 @@
 
 桥接采用嵌套 enum class：State、Direction、Difficulty、EndReason、PauseReason、CellType；CellType 为 Empty/Head/Body/Food。声明 Q_CLASSINFO("RegisterEnumClassesUnscoped", "false")，QML 使用 GameEnums.State.Running 等带枚举名常量；VM 声明 RegisterEnumsFromRelatedTypes=false，普通 C++ 层不包含桥接头文件。QML 操作 int 参数严格校验再转领域枚举，不依赖枚举整数值巧合。[Qt 枚举说明](https://doc.qt.io/qt-6.8/qtqml-cppintegration-data.html)
 
-main.cpp 按“QSettingsStore → SettingsService → QtTickSource → GameSessionService → DialogService → ShellViewModel → QQmlApplicationEngine”构造局部 RAII 对象，反序销毁，顶层 QObject 无父对象。SettingsService.load 在构造会话前调用；服务借用存储，寿命长于会话与所有 VM，存储长于服务。普通 C++ 存储不设置 QObject 父对象。暴露的 C++ VM/模型为 CppOwnership，ViewRegistry 单例由引擎拥有且不持有 VM。堆上子 VM/模型用 QObject 父对象唯一持有；QtTickSource 值成员 QTimer 不设父对象。
+main.cpp 按“QSettingsStore → SettingsService 并 load → QtTickSource → GameSessionService → DialogService → GameViewModelFactory → buildShell → QQmlApplicationEngine”创建对象；存储、服务和工厂由入口 RAII 持有，Shell 为无 QObject 父对象的 std::unique_ptr 根。启动只构造 Shell/Home/Difficulty；Game 及业务子项由工厂在开始请求时创建。普通 C++ 存储与工厂不设 QObject 父对象；顶层 QObject 无父对象，QtTickSource 值成员 QTimer 不设父对象。
 
-组合根在加载前调用 shell.initialize() 和 shell.activate()，使首页成为活动项。Shell 用同一注册表的 ViewRegistry::viewUrl(&shell) 定位根；引擎 setInitialProperties({viewModel: &shell}) 后 load(url)，失败非零退出。QML 模块 QtSnakeLab 1.0，RESOURCE_PREFIX=/qt/qml，各文件显式资源别名，目标 URI 为 qrc:/qt/qml/QtSnakeLab/views/XxxView.qml。构建需逐项验证映射 URI 与实际资源一致。
+| 装配接口或配置 | 目标关键契约 | 寿命与创建边界 |
+| --- | --- | --- |
+| `buildShell` | `std::unique_ptr<ShellViewModel> buildShell(GameSessionService&, SettingsService&, IDialogService&, IGameViewModelFactory&)` | 将已有服务和工厂按实例引用绑定；局部注入器解析根 Shell，返回后可销毁 |
+| `IGameViewModelFactory` | 普通 C++ 接口；虚析构；`virtual std::unique_ptr<GameViewModel> create()=0` | Shell 借用；创建完整但未初始化、未开始、未激活且无 parent 的 Game；可恢复失败返回空 |
+| `GameViewModelFactory` | `GameViewModelFactory(GameSessionService&, SettingsService&, IDialogService&)`；实现 create | 借用长于自身的服务；每次以局部注入器递归创建 Game/Board/Status/Pause/Result，不缓存 Game 或注入器引用 |
+| DI 依赖 | Boost.Ext.DI v1.3.2；独立 CMake INTERFACE 目标 | 固定版本和文件校验值并保留 Boost Software License 1.0；仅应用装配与装配测试依赖 |
+
+固定 v1.3.2 标签中的 `include/boost/di.hpp` 单头文件及其许可证随源码保存，构建不下载移动分支；该头文件 SHA-256 为 `1680ca33ffa04457edcea5c14346ad6e3138d8bb34d4fe074a59e13e34b54827`。此值来自已验证的官方标签文件，集成时校验内容并保留许可证；不使用其内部仍为1.3.0的版本宏判定下载标签。
+
+外部 ctor_traits 在 ViewModelInjectionTraits.h 声明，按4.6～4.8构造接口列出 Shell/Home/Difficulty/Game/Board/GameStatus/Pause/Result 八个 VM 的参数，刻意省略 QObject* parent，使其使用默认 nullptr。VM 头文件不包含 DI、不保存容器、不调用服务定位器。buildShell 绑定会话、SettingsService、IDialogService、IGameViewModelFactory 的已有实例，工厂 create 只绑定同一批服务再解析 Game。绑定实例用 `.to(service)`，业务子 VM 通过 unique_ptr 请求创建独立对象；缺失接口绑定在编译期装配检查中失败，不以运行时默认对象替代。[Boost.Ext.DI 文档](https://boost-ext.github.io/di/user_guide.html)、[固定版本](https://github.com/boost-ext/di/releases/tag/v1.3.2)
+
+DI 创建不等于长期持有。子 VM 通过按值 unique_ptr 交给父对象，接收方先验证非空、无既有 parent、同 GUI 线程，设置 parent 成功后 release；成员指针只用于访问，由 QObject 父子树唯一删除。服务和工厂均通过引用借用，寿命长于所有使用者；QML 暴露的 C++ VM/模型为 CppOwnership，ViewRegistry 单例由引擎拥有且不持有 VM。内部 overlay、BoardCellModel 和动态 ConfirmAction VM 不由启动 DI 创建。
+
+组合根在加载前调用 shell->initialize() 和 shell->activate()，使首页成为活动项。通过同一注册表的 ViewRegistry::viewUrl(shell.get()) 定位根；引擎 setInitialProperties({viewModel: shell.get()}) 后 load(url)，失败非零退出。退出先销毁 QML 引擎，再销毁 Shell 及仍存活/待删除子项、Game 工厂、弹窗服务、会话、计时源、SettingsService 和存储。即使 deleteLater 尚未执行，待删除 Game 仍由 Shell 的 QObject 父关系回收。QML 模块 QtSnakeLab 1.0，RESOURCE_PREFIX=/qt/qml，各文件显式资源别名，目标 URI 为 qrc:/qt/qml/QtSnakeLab/views/XxxView.qml，逐项验证实际资源映射。
 
 ### 4.2 规则核心
 
@@ -203,7 +222,7 @@ Difficulty 元类型在 SettingsService.h 的应用层、snake 命名空间外�
 | GameStatusViewModel | highScoreChanged(difficulty) | 只在与当前会话展示难度匹配时读取并更新 bestScore |
 | ResultViewModel | highScoreChanged(difficulty) | 会话 GameOver/Won 且难度匹配才更新 bestScore，其他通知忽略 |
 
-GameStatus/Result 仍订阅 sessionChanged，在会话变化时同步本局信息和对应最高分；设置通知只处理相关成绩。父级 VM 只转交服务引用以创建子项，不代替子 VM 订阅；QML 继续只绑定 VM 的属性通知。
+GameStatus/Result 仍订阅 sessionChanged，在会话变化时同步本局信息和对应最高分；设置通知只处理相关成绩。SettingsService 由 DI 直接注入使用它的 VM，父级 VM 不再转交服务，不代替子 VM 订阅；QML 继续只绑定 VM 的属性通知。
 
 ### 4.5 MVVM 生命周期与操作绑定
 
@@ -213,13 +232,14 @@ GameStatus/Result 仍订阅 sessionChanged，在会话变化时同步本局信�
 | --- | --- | --- |
 | ViewModelBase | explicit ViewModelBase(QObject *parent=nullptr) | 公共 QObject 展示基类，不持有 View 或服务定位器 |
 | ScreenViewModel | bool isInitialized / isActive；void initialize()；void activate()；void deactivate(bool close=false) | 生命周期为 C++ API；初始化一次、激活/停用幂等；受保护 onInitialize/onActivate/onDeactivate(bool) 钩子；close 不隐式删除对象 |
-| ConductorViewModel | ScreenViewModel *activeItem（NOTIFY activeItemChanged）；void addItem(ScreenViewModel*)；bool activateItem(ScreenViewModel*) | addItem 接管堆对象父所有权，拒绝已有其他父对象；activateItem 仅接受已登记项或 nullptr，非法 false；同项幂等 |
+| ConductorViewModel | ScreenViewModel *activeItem（NOTIFY activeItemChanged）；void addItem(std::unique_ptr<ScreenViewModel>)；bool activateItem(ScreenViewModel*) | addItem 验证非空、无 parent、同线程后接管 QObject 父所有权；违反契约诊断且不登记，不发布无效对象；activateItem 仅接受已登记项或 nullptr，非法 false；同项幂等 |
+| ConductorViewModel | bool removeItem(ScreenViewModel*) | 仅已登记且非活动项可移除，null/未登记/活动项返回 false 且无副作用；成功取消登记并调用 deleteLater，保留 parent 直到实际释放；待删除项不可重新登记或激活 |
 | ConductorViewModel | 生命周期钩子与活动项管理 | 活动 Conductor 切换先 deactivate 旧项、提交 activeItem、activate 新项后通知；停用停用当前项但保留选择，重激活再激活它；不活动时只选定项不激活 |
 | ViewRegistry | static QUrl viewUrl(const ViewModelBase*)；Q_INVOKABLE QUrl resolve(ViewModelBase*) const | QML_ELEMENT + QML_SINGLETON；固定九对映射，nullptr 无 View；未知类型诊断/无效URL；不可变、无 VM 所有权 |
 | ActionBinding | ViewModelBase *target；QString action；QVariantList arguments（可写，各自NOTIFY）；bool enabled（只读NOTIFY）；Q_INVOKABLE void execute() | QML_ELEMENT，可创建；以弱 QObject 指针借用 target，销毁后禁用；更新配置断开旧守卫连接再验证 |
 | ActionBinding | 对应 public Q_INVOKABLE void action() 或 action(int)；bool canXxx 属性及 NOTIFY | 无重载，参数数量/类型严格匹配；守卫名为 can+首字母大写action，缺失配置诊断且禁用；连接NOTIFY重算enabled，execute重读守卫再调用 |
 
-Conductor 的子项保留直到所有者析构，普通页面切换不销毁 Home/Game，覆盖层切换不销毁 Pause/Result。订阅依赖在构造/初始化时建立一次，激活时刷新而不重复连接。生命周期不能作为开始、暂停或结束游戏的替代操作。[CM 组合说明](https://caliburnmicro.com/documentation/composition)
+Conductor 的子项保留直到显式移除或所有者析构，单纯切换活动项不自动销毁对象。Home 常驻；Game 开始时创建，成功返回首页后由 Shell 显式移除；暂停、终局和再玩保留 Game，覆盖层切换保留 Pause/Result。依赖订阅在构造/初始化时建立一次，激活时刷新而不重复连接。生命周期不能作为开始、暂停或结束游戏的替代操作。[CM 组合说明](https://caliburnmicro.com/documentation/composition)
 
 **操作声明示例（待实现）**：
 
@@ -246,28 +266,36 @@ ActionButton {
 
 | 类型 | 构造与持有 | 只读属性与通知 |
 | --- | --- | --- |
-| ShellViewModel : ConductorViewModel | ShellViewModel(GameSessionService&,SettingsService&,IDialogService&,QObject *parent=nullptr)；持有 Home/Game | 继承 activeItem；ConfirmActionViewModel *dialog（借用服务当前对象，dialogChanged）；bool canWindowDeactivated |
-| HomeViewModel : ScreenViewModel | HomeViewModel(GameSessionService&,SettingsService&,IDialogService&,QObject *parent=nullptr)；持有 Difficulty | DifficultyViewModel *difficulty（CONSTANT）；bool canStartGame |
+| ShellViewModel : ConductorViewModel | ShellViewModel(IDialogService&,std::unique_ptr<HomeViewModel>,IGameViewModelFactory&,QObject *parent=nullptr)；接管 Home、借用工厂，按需接管成功开始的 Game | 继承 activeItem；ConfirmActionViewModel *dialog（借用服务当前对象，dialogChanged）；bool canWindowDeactivated；当前 Game 用 QPointer 借用，不作为恒定 QML 属性 |
+| HomeViewModel : ScreenViewModel | HomeViewModel(GameSessionService&,IDialogService&,std::unique_ptr<DifficultyViewModel>,QObject *parent=nullptr)；接管 Difficulty，借用自身使用的服务 | DifficultyViewModel *difficulty（CONSTANT）；bool canStartGame |
 | DifficultyViewModel : ViewModelBase | DifficultyViewModel(GameSessionService&,SettingsService&,IDialogService&,QObject *parent=nullptr)；借用依赖 | selectedDifficulty（GameEnumsQml::Difficulty）、selectedDifficultyName（QString）、selectedIntervalMs（int）、easyBestScore/normalBestScore/hardBestScore/selectedBestScore（int）、canSelectDifficulty（bool） |
 
 | 操作或协作 | 方法与信号 | 条件与结果 |
 | --- | --- | --- |
 | Shell | Q_INVOKABLE void windowDeactivated() | canWindowDeactivated=活动页为 Game 且 Game 可失焦暂停；转发暂停用例，不调用 QML 焦点接口 |
-| Home | Q_INVOKABLE void startGame()；void gameStarted() | canStartGame=isActive、Ready、弹窗不忙；服务 start 成功才发意图；Shell 在 C++ 连接并 activateItem(Game) |
+| Home | Q_INVOKABLE void startGame()；void startRequested() | canStartGame=isActive、Ready、弹窗不忙；复核守卫后只发意图，不调用会话 start；Shell 在 C++ 处理 |
+| Shell处理开始意图 | 工厂 create → 验证候选无parent/同线程 → 连接导航意图 → initialize → Game.beginSession → addItem → activateItem | 复核 Home.canStartGame、首页仍活动、无当前 Game、无开始处理中标记；创建前设标记，拒绝重复或重入请求；空对象或开始拒绝时释放候选、清标记并保留首页；成功才接管、发布 Game，并清标记 |
+| Shell处理返回意图 | 停用 Game → activateItem(Home) → 清空 Game 访问指针 → removeItem(Game) | 仅接收当前 Game 在 returnHome 成功后发出的意图；停用禁用交互并 cancelFor，通知 ViewHost 替换旧页后延迟释放；旧实例意图不得操作新 Game |
 | Difficulty | Q_INVOKABLE void selectDifficulty(int difficulty) | canSelectDifficulty=父首页活动、Ready、弹窗不忙；校验枚举后经会话保存；保存失败仍展示内存选择 |
 | Home→Difficulty | void setInteractionEnabled(bool)（仅 C++） | 首页激活/停用更新内部交互标记及守卫，不让隐藏页面操作；设置数据从 SettingsService 两类精确信号同步，无可修改成绩副本 |
 
-Shell 初始化选 Home，激活 Shell 后激活 Home；Game 的 homeRequested 意图成功后由 Shell 切回 Home。同级 VM 不导航彼此，不引入第二个导航服务。
+Shell 构造时只接管并登记 Home，初始化选 Home，激活 Shell 后激活 Home。Game.beginSession 成功之前，候选 Game 仅由局部 unique_ptr 持有，不暴露给 QML。开始成功后接管并激活，激活刷新运行事实；工厂与初始化本身不开始会话。返回先停用旧 Game，随后 activateItem(Home) 对重复停用保持幂等；移除使用局部保存的旧指针，不访问已清空的当前 Game。Home 常驻，新的开始请求创建新的 Game；同级 VM 不导航彼此，不引入第二个导航服务。
+
+Game 从自身信号或 DialogService 完成回调中发返回意图时，Shell 不同步 delete；removeItem 只取消登记并安排 deleteLater。Game 停用即取消请求并清除交互锁，排队结果由服务的请求标识和弱请求者校验失效；待删除对象不能继续操作会话。QML 先替换旧页面和动作目标，再由事件循环释放旧 Game；退出前未处理的延迟删除仍由 Shell 父所有权负责。
 
 ### 4.7 Game、Board 与 GameStatus
 
 | 类型 | 构造与持有 | 只读属性与通知 |
 | --- | --- | --- |
-| GameViewModel : ScreenViewModel | GameViewModel(GameSessionService&,SettingsService&,IDialogService&,QObject *parent=nullptr)；持有 Board/Status/overlay | BoardViewModel *board、GameStatusViewModel *status、ConductorViewModel *overlay（均CONSTANT）；canPauseGame/canResumeGame/canTogglePauseGame/canRestartGame/canGoHome/canPauseForWindowInactive（bool） |
+| GameViewModel : ScreenViewModel | GameViewModel(GameSessionService&,IDialogService&,std::unique_ptr<BoardViewModel>,std::unique_ptr<GameStatusViewModel>,std::unique_ptr<PauseViewModel>,std::unique_ptr<ResultViewModel>,QObject *parent=nullptr)；接管 Board/Status，内部创建 overlay 并由其接管 Pause/Result | BoardViewModel *board、GameStatusViewModel *status、ConductorViewModel *overlay（均CONSTANT，在每个 Game 实例内稳定）；canPauseGame/canResumeGame/canTogglePauseGame/canRestartGame/canGoHome/canPauseForWindowInactive（bool） |
 | BoardViewModel : ViewModelBase | BoardViewModel(GameSessionService&,IDialogService&,QObject *parent=nullptr)；持有唯一 BoardCellModel | BoardCellModel *model（CONSTANT）；direction（GameEnumsQml::Direction）、description（QString）、canTurn（bool） |
 | GameStatusViewModel : ViewModelBase | GameStatusViewModel(GameSessionService&,SettingsService&,QObject *parent=nullptr)；借用依赖 | score/bestScore/snakeLength/intervalMs（int）、difficulty（GameEnumsQml::Difficulty）、difficultyName（QString） |
 
-Game 守卫均要求 isActive 且无内部 interactionPending、无服务 busy；暂停/失焦暂停另要求 Running，继续要求 Paused，切换暂停要求 Running或Paused，重开/返回要求非Ready。Board.canTurn 要求父 Game 活动、无交互锁、无模态且会话 Running。内部 setInteractionEnabled(bool) 在 C++ 同步父交互条件，不暴露给 QML。
+Game 的 QML 操作守卫均要求 isActive 且无内部 interactionPending、无服务 busy；暂停/失焦暂停另要求 Running，继续要求 Paused，切换暂停要求 Running或Paused，重开/返回要求非Ready。仅 C++ 的 beginSession 不采用活动页守卫：候选尚未导航，检查已初始化、Ready、无模态且无待确认操作后调用会话 start，返回是否接受；失败不改变页面，成功也不自行激活。构造、initialize、activate 均不隐式开始游戏。Board.canTurn 要求父 Game 活动、无交互锁、无模态且会话 Running。内部 setInteractionEnabled(bool) 在 C++ 同步父交互条件，不暴露给 QML。
+
+| Game装配入口（仅C++） | 前置条件 | 行为 |
+| --- | --- | --- |
+| bool beginSession() | 已初始化、会话Ready、无interactionPending、弹窗不忙，不要求isActive | 调用会话start并返回结果，Shell成功后才登记和激活；不注册为Q_INVOKABLE |
 
 | Game 操作（Q_INVOKABLE void） | 前置条件 | 行为 |
 | --- | --- | --- |
@@ -278,7 +306,7 @@ Game 守卫均要求 isActive 且无内部 interactionPending、无服务 busy�
 
 Game 内部持有 interactionPending（不作为 QML 确认数据暴露）和一次待执行后续操作；打开确认前锁定，服务结果处理结束后解锁。确认为真且会话仍 Paused 才执行 restart/returnHome；为假保持暂停。请求服务失败、页面停用或失效状态要取消请求并清锁，不能留下悬挂操作。无阻塞事件循环，重复重开/返回在锁定期间拒绝。
 
-Game 的覆盖层 Conductor 持有 Pause/Result，跟随完整会话事实选择空/Pause/Result。Game 激活时激活覆盖层并刷新，停用时停用覆盖层、禁用 Board 并 cancelFor(this)，不直接清理核心。子覆盖层的操作意图在 Game 的 C++ 连接中处理，外部没有会话写入口。
+Game 的覆盖层 Conductor 由 Game 内部创建，持有工厂通过 DI 创建并传入的 Pause/Result，跟随完整会话事实选择空/Pause/Result。Game 激活时激活覆盖层并刷新，停用时停用覆盖层、禁用 Board 并 cancelFor(this)，不直接清理核心。暂停、GameOver/Won 与再玩不销毁 Game 或其子项；成功返回首页后随 Game 整树释放。子覆盖层的操作意图在 Game 的 C++ 连接中处理，QML 没有会话写入口。
 
 Board 的 `Q_INVOKABLE void turn(int direction)` 对应 canTurn，严格校验后调用会话；拒绝请求不重置时钟。Board 在 sessionChanged 上 applySnapshot 并更新已提交方向/中文说明；Status 订阅 sessionChanged 和按难度过滤的 highScoreChanged，读当前难度的 SettingsService 最高分，Ready 分数/长度为0。缓存只为展示，不执行规则。
 
@@ -316,7 +344,7 @@ Board 的 `Q_INVOKABLE void turn(int direction)` 对应 canTurn，严格校验�
 | 文件或约定 | 输入 | 装配与视觉契约 |
 | --- | --- | --- |
 | 九个业务 View | required property 对应 XxxViewModel viewModel | Shell→Shell，Home→Home，Difficulty→Difficulty，Game→Game，Board→Board，GameStatus→GameStatus，Pause→Pause，Result→Result，ConfirmAction→ConfirmAction；不接收第二个业务 VM |
-| ViewHost | property ViewModelBase model；readonly property Item item | 注册表resolve，Loader.setSource(url,{viewModel:model})，null清空；model替换才重装配，VM同一对象不因属性更新重建；不管理VM生命周期 |
+| ViewHost | property ViewModelBase model；readonly property Item item | 注册表resolve，Loader.setSource(url,{viewModel:model})，null清空；model替换才重装配，VM同一对象不因属性更新重建；返回首页先替换旧Game View及动作目标，不缓存旧VM，不管理VM生命周期 |
 | ActionButton | property ViewModelBase target；string action；var arguments（列表） | 内部ActionBinding管理enabled，通用onClicked仅execute；保留按钮原生空格行为 |
 | KeyActionBinding | property Item host；ViewModelBase target；string action；property var keyMap（Qt键码到参数列表的映射） | 仅host活动焦点路径处理，AfterItem优先级；忽略自动重复/已消费事件；成功识别且操作可用后执行并消费，不传event到VM；例如Up键映射为含Direction.Up的单元素列表，空格映射空列表 |
 | DialogHost | property ConfirmActionViewModel model | model非空打开模态，内容由ViewHost注入；用户拒绝通过cancel操作，程序关闭不重复取消；焦点取消/Tab循环，关闭恢复活动View默认焦点 |
@@ -353,6 +381,7 @@ Item {
 | `tests/support/ManualTickSource.h` | 计划新增（未实现） | 手动单次fire；记录间隔/次数，取消后不补发。 |
 | `tests/support/MemorySettingsStore.h` | 计划新增（未实现） | 实现普通 C++ load/save 替身；保存持久化副本、提供可选加载字段/读取失败、统计读写次数并注入保存失败；不做业务校验/最高分计算/变化通知。 |
 | `tests/support/FakeDialogService.h` | 计划新增（未实现） | 可控单个弹窗和排队结果，模拟忙、接受/取消、请求者失效及cancelFor。 |
+| `tests/support/FakeGameViewModelFactory.h` | 计划新增（未实现） | 实现创建接口，记录调用次数，返回真实服务支撑的完整 Game 子树或空；测试开始期间重入与服务拒绝。 |
 | `tests/support/SnakeGameTestAccess.h` | 计划新增（未实现） | 规则友元测试夹具，构造合法尾格/碰撞/满格前状态，无产品场景载入API。 |
 | `tests/support/GameSessionTestAccess.h` | 计划新增（未实现） | 会话友元取得核心以装配夹具，仍经手动timeout触发真实终局。 |
 | `tests/quicktestmain.cpp` | 计划新增（未实现） | Qt Quick Test入口和setup，复用真实模块/VM，注入真实 SettingsService、测试计时/存储/控制对象。 |
@@ -366,31 +395,36 @@ Item {
 | `tests/cpp/TestQtTickSource.cpp` | 计划新增（未实现） | 单次信号、arm替换、disarm取消；短事件循环宽松超时，不断言精确毫秒。 |
 | `tests/cpp/TestSettingsService.cpp` | 计划新增（未实现） | 默认/非法字段、部分读取失败、load幂等、最高分max、非法请求无副作用；两类通知精度、同值/纯重试无通知、回调读取完整记录、失败保存仍通知、保留内存及后续全量恢复。 |
 | `tests/cpp/TestQSettingsStore.cpp` | 计划新增（未实现） | 隔离INI严格解码、可选字段/读取结果、四键读写、其他键保留及跨实例恢复；目录占文件路径制造写失败，修复后save成功；不验证业务缓存或通知。 |
-| `tests/cpp/TestMvvmLifecycle.cpp` | 计划新增（未实现） | 初始化一次、幂等激活/停用、Conductor唯一活动项、父子生命周期与保留对象。 |
+| `tests/cpp/TestMvvmLifecycle.cpp` | 计划新增（未实现） | 初始化一次、幂等激活/停用、unique_ptr接管、唯一活动项、移除活动/未知项拒绝、取消登记后不可激活、deleteLater与父对象退出回收。 |
+| `tests/cpp/TestViewModelComposition.cpp` | 计划新增（未实现） | 生产DI装配入口：启动仅Shell/Home/Difficulty、服务引用身份、工厂完整Game子树、局部注入器销毁后引用有效、parent排除、QML所有权、各对象仅释放一次；用is_creatable静态断言检查缺失接口绑定。 |
 | `tests/cpp/TestActionBinding.cpp` | 计划新增（未实现） | 方法/守卫/参数验证、canXxx通知、执行前复核、目标销毁及替换断连、缺失契约诊断。 |
 | `tests/cpp/TestViewRegistry.cpp` | 计划新增（未实现） | 九对映射、资源URL、未知VM拒绝、根与ViewHost共用同一表。 |
 | `tests/cpp/TestDialogService.cpp` | 计划新增（未实现） | 一个弹窗、一次异步结果、忙状态、重复完成、cancelFor/请求者销毁使排队结果失效、释放次序。 |
-| `tests/cpp/TestShellHomeViewModels.cpp` | 计划新增（未实现） | C++导航、唯一activeItem、开始成功才导航、停用首页不可开始及窗口失焦转发。 |
+| `tests/cpp/TestShellHomeViewModels.cpp` | 计划新增（未实现） | Home只发开始意图；无Game启动、准备后开始、成功才导航、工厂空/开始拒绝保留首页、重复/重入不重复创建、停用首页拒绝、失焦转发；返回后延迟释放、重进新实例与旧实例信号隔离。 |
 | `tests/cpp/TestDifficultyViewModel.cpp` | 计划新增（未实现） | 真实设置服务下的首页选择限制、枚举校验；难度通知只更新选择相关属性，成绩通知只更新对应档和匹配的所选最高分；保存失败仍显示内存选择。 |
-| `tests/cpp/TestGameViewModel.cpp` | 计划新增（未实现） | 覆盖层映射、守卫、确认锁全周期、异步确认/取消暂停、服务拒绝、失效回调、终局直接再玩/返回。 |
+| `tests/cpp/TestGameViewModel.cpp` | 计划新增（未实现） | 未激活候选beginSession的前置条件/结果、初始化不开始、子项接管、覆盖层映射、暂停/终局/再玩实例稳定、守卫与确认锁、取消、拒绝及停用后旧回调失效。 |
 | `tests/cpp/TestBoardStatusViewModels.cpp` | 计划新增（未实现） | Board方向转发/已提交方向、父停用/模态隔离、模型地址稳定；Status会话同步及最高分难度过滤，其他难度变化不刷新。 |
 | `tests/cpp/TestOverlayViewModels.cpp` | 计划新增（未实现） | Pause/Result具名意图、父条件同步、Screen停用拒绝；Result只响应当前终局难度成绩通知；Confirm独立文案与一次完成。 |
 | `tests/cpp/TestBoardCellModel.cpp` | 计划新增（未实现） | 400行/角色/索引、完整投影、连续变化区间、同值不通知、清空及模型约束。 |
 | `tests/cpp/TestQmlModule.cpp` | 计划新增（未实现） | 真实VM注册、每个View单typed属性注入、缺失required加载失败、QML不能创建业务VM、资源映射和枚举。 |
-| `tests/qml/tst_mvvm_hosts.qml` | 计划新增（未实现） | ViewHost定位/替换/单VM注入、ActionButton守卫、DialogHost关闭不二次取消、主题。 |
-| `tests/qml/tst_game_flow.qml` | 计划新增（未实现） | 首页开始、移动、暂停继续、重开/返回确认及终局流程；故障只验证游戏不受影响，没有提示组件。 |
+| `tests/qml/tst_mvvm_hosts.qml` | 计划新增（未实现） | ViewHost定位/替换/单VM注入、返回时旧View与动作目标解除引用、延迟销毁无悬挂绑定、ActionButton守卫、DialogHost关闭不二次取消、主题。 |
+| `tests/qml/tst_game_flow.qml` | 计划新增（未实现） | 首次开始按需装配、移动/暂停/确认/结算/再玩、返回销毁与重复进出、旧确认回调不能导航新局；共享设置仍同步，存储故障没有提示组件。 |
 | `tests/qml/tst_keyboard_focus.qml` | 计划新增（未实现） | WASD/方向键、自动重复、按钮空格不双发、Esc优先级、模态穿透防护、Tab及关闭/恢复焦点。 |
 
 CMakeLists.txt 显式登记类型、QML及资源别名，规则核心独立为无Qt库；会话、SettingsService 和基础设施不依赖QML；SettingsService信号测试登记领域Difficulty元类型。应用与测试复用同一展示模块，不复制业务实现。启用CTest，每个C++测试和Qt Quick Test入口登记；QML测试用tst_*.qml。QML集成测试通过真实会话/VM和替身推进，不用直写VM伪造结算。
 
+Boost.Ext.DI v1.3.2 固定为独立 INTERFACE 依赖，应用装配实现与装配测试复用同一装配目标，业务展示模块不依赖其头文件。完整Game子树的构造接口和必要实现就绪后再接入工厂递归创建，不能用未实现类型占位来声称装配通过。虚拟工厂和删除计数只用于测试；检查deleteLater需推进事件循环，并覆盖未推进时直接销毁Shell的父所有权回收。
+
 公共CMakePresets不写个人Qt路径，CMakeUserPresets不提交；macOS与通用LinuxCI执行构建/CTest，离屏测试不替代真实焦点、尺寸、高DPI、分发及麒麟原生验收。会话与VM测试使用真实SettingsService及内存/临时存储，不改用户记录；SettingsService测试独立验证业务缓存/通知，存储测试只验证读写。
+
+已有仓库外临时概念验证使用Boost.Ext.DI v1.3.2、Qt 6.8.3、C++17、macOS arm64，覆盖静态整树装配、共享服务身份、注入器销毁后引用有效、QObject接管、moc/QML属性、垃圾回收、缺失接口绑定的编译期检查及各VM析构一次；CTest 1/1通过且AddressSanitizer未报告错误，不代表全面泄漏检测。本表全部正式测试仍未实现；Game工厂懒加载、动态移除、真实页面/异步确认及银河麒麟兼容性尚未验证。
 
 ## 6. 页面与文件对应关系
 
 | 页面或行为 | QML入口与装配 | 展示层 | 应用层 | 规则或存储边界 |
 | --- | --- | --- | --- | --- |
-| 根与导航 | ShellView、ViewHost | Shell Conductor，Home/Game意图连接 | 导航成功依赖开始/返回用例结果 | 不直接操作核心或设置 |
-| 首页与难度 | HomeView、DifficultyView | Home、Difficulty VM | 会话检查Ready并开始/选择 | 核心初始化；SettingsService查询/选择，存储仅读写 |
+| 根与导航 | ShellView、ViewHost | Shell Conductor，Home开始意图、Game返回意图；工厂按需装配与返回后移除 | Game.beginSession/返回用例成功才导航，服务寿命独立于页面 | 不直接操作核心或设置 |
+| 首页与难度 | HomeView、DifficultyView | Home发startRequested，Difficulty读取/选择 | Game准备后会话检查Ready并开始；选择仍经会话 | 核心初始化；SettingsService查询/选择，存储仅读写 |
 | 游戏移动与统计 | GameView、BoardView、GameStatusView | Game、Board、Status VM与BoardCellModel | 会话超时/方向请求 | 核心单步；SettingsService提供最高分查询 |
 | 暂停及失焦 | ShellView、GameView、PauseView | Shell→Game；overlay Conductor→Pause | 暂停/继续及单次计时 | 保留快照/待转向，不存进行中棋盘 |
 | 重开/返回确认 | DialogHost、ConfirmActionView | Game交互锁、DialogService、Confirm VM | 确认后restart/returnHome | 核心初始化/清理，放弃局不结算 |
@@ -409,7 +443,7 @@ CMakeLists.txt 显式登记类型、QML及资源别名，规则核心独立为�
 flowchart TB
     Shell["ShellView.qml"] --> PageHost["ViewHost：activeItem"]
     PageHost --> Home["HomeView.qml"]
-    PageHost --> Game["GameView.qml"]
+    PageHost --> Game["GameView.qml：开始成功后加载"]
     Home --> DifficultyHost["ViewHost：difficulty"] --> Difficulty["DifficultyView.qml"]
     Game --> BoardHost["ViewHost：board"] --> Board["BoardView.qml"]
     Game --> StatusHost["ViewHost：status"] --> Status["GameStatusView.qml"]
@@ -424,7 +458,7 @@ flowchart TB
     Game -.-> Theme
 ```
 
-实线表示文件装配及可加载目标，ViewHost同一时刻只加载一个映射View；覆盖层模型可为空。虚线表示复用通用行为或主题，省略其他View的重复样式/按钮连线。图中选择目标来自VM，不是QML业务状态判断。
+实线表示文件装配及可加载目标，ViewHost同一时刻只加载一个映射View；启动只加载首页，Game在工厂创建并成功开始后才加载，返回后替换为Home；覆盖层模型可为空。虚线表示复用通用行为或主题，省略其他View的重复样式/按钮连线。图中选择目标来自VM，不是QML业务状态判断。
 
 ### 7.2 QML 与 ViewModel 绑定图
 
@@ -451,7 +485,7 @@ flowchart LR
     ConfirmView -->|accept / cancel| Confirm
 ```
 
-VM→View表示只读属性/通知，View→VM表示经ActionBinding的操作及守卫；main箭头为创建前注入。除根外均由ViewHost按注册表注入对应typed viewModel，图省略重复Host以便阅读。父子组合关系见下一图，QML没有同级VM转调或业务信号转接。
+VM→View表示只读属性/通知，View→VM表示经ActionBinding的操作及守卫；main箭头为创建前注入。除根外均由ViewHost按注册表注入对应typed viewModel，图省略重复Host以便阅读。图列出可用类型，不表示所有VM在启动时已存在；Game子树按需创建，Confirm按请求创建。父子组合关系见下一图，QML没有同级VM转调或业务信号转接。
 
 ### 7.3 C++ 类型依赖与所有权图
 
@@ -473,12 +507,19 @@ classDiagram
     CompositionRoot *-- QtTickSource
     CompositionRoot *-- GameSessionService
     CompositionRoot *-- DialogService
+    CompositionRoot *-- GameViewModelFactory
     CompositionRoot *-- ShellViewModel
     CompositionRoot *-- QQmlApplicationEngine
+    CompositionRoot ..> ViewModelComposition : 调用buildShell
+    ViewModelComposition ..> BoostExtDI : 局部注入器
+    ViewModelComposition ..> ShellViewModel : 创建根和首页子树
+    GameViewModelFactory ..> BoostExtDI : 每次局部注入器
+    GameViewModelFactory ..> GameViewModel : 创建完整Game子树
+    IGameViewModelFactory <|.. GameViewModelFactory
     QQmlApplicationEngine *-- ViewRegistry : 单例
     QQmlApplicationEngine *-- ActionBinding : QML对象
     ShellViewModel *-- HomeViewModel
-    ShellViewModel *-- GameViewModel
+    ShellViewModel *-- GameViewModel : 按需接管和移除
     HomeViewModel *-- DifficultyViewModel
     GameViewModel *-- BoardViewModel
     GameViewModel *-- GameStatusViewModel
@@ -488,10 +529,11 @@ classDiagram
     BoardViewModel *-- BoardCellModel
     DialogService *-- ConfirmActionViewModel : 临时对象
     ShellViewModel ..> IDialogService : dialog借用
+    ShellViewModel ..> IGameViewModelFactory : 借用创建接口
+    GameViewModelFactory ..> GameSessionService : 借用已有实例
+    GameViewModelFactory ..> SettingsService : 借用已有实例
+    GameViewModelFactory ..> IDialogService : 借用已有实例
     HomeViewModel ..> GameSessionService
-    ShellViewModel ..> SettingsService : 仅创建子项时转交
-    HomeViewModel ..> SettingsService : 仅创建子项时转交
-    GameViewModel ..> SettingsService : 仅创建子项时转交
     HomeViewModel ..> IDialogService
     DifficultyViewModel ..> GameSessionService
     DifficultyViewModel ..> SettingsService : 读取和精确订阅
@@ -519,6 +561,8 @@ classDiagram
     IDialogService <|-- FakeDialogService
 ```
 
-CompositionRoot表示main.cpp职责，不新增同名类。`*--`为生命周期持有，`..>`为借用，`<|--`为继承/接口实现。overlay是Game持有的Conductor实例，不能将该图误读为Shell也持有Pause/Result。SettingsService虚线分别标明“子对象创建时转交”“读取/精确订阅”和“业务修改”；Shell/Home/Game仅在创建子项时转交，不直接访问存储。只有SettingsService调用ISettingsStore的load/save，VM不持有存储引用。
+CompositionRoot表示main.cpp职责，不新增同名类；ViewModelComposition表示应用装配函数所在模块，BoostExtDI表示外部库，不新增同名业务类。`*--`为生命周期持有，`..>`按标签表示借用、调用或创建，`<|--`为继承，`<|..`为接口实现。启动创建Shell/Home/Difficulty；Shell借用工厂，开始时接管Game，返回首页后显式移除并延迟释放。创建箭头与所有权线分开，局部DI注入器不长期拥有已交接的VM。
 
-图中测试替身只编进测试程序；服务唯一持有核心，BoardCellModel只存展示投影。QtTickSource另持有值成员QTimer；ViewRegistry和ActionBinding不接管VM。退出先销毁QML，再销毁Shell及子项、弹窗服务、会话、计时源、SettingsService和存储；确认结果排队期间也遵守请求者与所有者寿命。
+overlay由Game内部创建并持有，接管注入的Pause/Result，Shell不直接持有这些覆盖层子项。SettingsService直接注入Difficulty/Status/Result供读取与精确订阅，GameSessionService负责业务修改，Game工厂只在装配时绑定其引用；Shell/Home/Game没有SettingsService依赖。只有SettingsService调用ISettingsStore的load/save，VM不持有存储引用。
+
+图中测试替身只编进测试程序；服务唯一持有核心，BoardCellModel只存展示投影。QtTickSource另持有值成员QTimer；ViewRegistry和ActionBinding不接管VM。退出先销毁QML，再销毁Shell及仍存活/待删除子项、Game工厂、弹窗服务、会话、计时源、SettingsService和存储；确认结果排队与Game延迟删除期间也遵守请求者、工厂和服务寿命。
